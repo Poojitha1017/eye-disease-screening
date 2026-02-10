@@ -1,4 +1,5 @@
 # train_stage1.py
+
 import os
 import torch
 import torch.nn as nn
@@ -34,8 +35,8 @@ train_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize(
-        mean=[0.485, 0.456, 0.406],   # ImageNet mean
-        std=[0.229, 0.224, 0.225]     # ImageNet std
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
     )
 ])
 
@@ -63,7 +64,7 @@ train_loader = DataLoader(
     train_ds,
     batch_size=STAGE1_BATCH_SIZE,
     shuffle=True,
-    num_workers=0  # Windows safe
+    num_workers=0
 )
 
 val_loader = DataLoader(
@@ -95,9 +96,18 @@ model.classifier = nn.Sequential(
 model.to(device)
 
 # ======================
-# Loss & Optimizer
+# LOSS & OPTIMIZER (FIXED)
 # ======================
-criterion = nn.BCEWithLogitsLoss()
+
+# Dataset counts
+num_normal = 866
+num_diseased = 758
+
+# Penalize false "diseased" predictions
+pos_weight = torch.tensor([num_normal / num_diseased]).to(device)
+print("Using pos_weight:", pos_weight.item())
+
+criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 optimizer = optim.Adam(model.classifier.parameters(), lr=STAGE1_LR)
 
 # ======================
@@ -150,7 +160,7 @@ for epoch in range(STAGE1_EPOCHS):
     )
 
     # ------------------
-    # Save best model (SAFE)
+    # Save best model
     # ------------------
     if val_loss < best_val_loss:
         best_val_loss = val_loss
@@ -159,3 +169,4 @@ for epoch in range(STAGE1_EPOCHS):
         print("✔ Saved best Stage-1 model")
 
 print("✅ Stage-1 training complete")
+

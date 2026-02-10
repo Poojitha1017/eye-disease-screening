@@ -69,24 +69,41 @@ class SwinGradCAM:
 
     def generate(self, x):
         self.model.zero_grad()
+
         out = self.model(x)
         cls = out.argmax(dim=1).item()
         out[0, cls].backward()
 
-        acts = self.activations[0]     # (N, C)
-        grads = self.gradients[0]      # (N, C)
+        acts = self.activations[0]   # (N, C)
+        grads = self.gradients[0]    # (N, C)
 
-        weights = grads.mean(dim=0)    # (C,)
+        weights = grads.mean(dim=0)  # (C,)
         cam = torch.matmul(acts, weights)  # (N,)
 
         cam = cam.detach().cpu().numpy()
         cam = np.maximum(cam, 0)
 
-        # Tokens → spatial map
+        # -------------------------------
+        # 🔥 STRONG CAM NORMALIZATION
+        # -------------------------------
+        # Reshape tokens → spatial
         size = int(math.sqrt(cam.shape[0]))
         cam = cam.reshape(size, size)
 
         cam = cv2.resize(cam, (STAGE2_IMG_SIZE, STAGE2_IMG_SIZE))
+
+        # Percentile clipping (huge difference)
+        low, high = np.percentile(cam, 1), np.percentile(cam, 99)
+        cam = np.clip(cam, low, high)
+
+        cam = (cam - cam.min()) / (cam.max() + 1e-8)
+
+        # Gamma correction (ViT/Swin friendly)
+        cam = np.power(cam, 0.5)
+
+        # Smooth slightly (reduce patch artifacts)
+        cam = cv2.GaussianBlur(cam, (7, 7), 0)
+
         cam = (cam - cam.min()) / (cam.max() + 1e-8)
 
         return cam, cls
@@ -94,8 +111,7 @@ class SwinGradCAM:
 # ---------------- OVERLAY ----------------
 def overlay(img, cam):
     h, w = cam.shape
-
-    img_resized = cv2.resize(img, (w, h))  # 🔑 FIX
+    img_resized = cv2.resize(img, (w, h))
 
     heatmap = cv2.applyColorMap(
         np.uint8(255 * cam),
@@ -103,11 +119,11 @@ def overlay(img, cam):
     )
     heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
 
-    return cv2.addWeighted(img_resized, 0.6, heatmap, 0.4, 0)
-
+    # Cleaner blend
+    return cv2.addWeighted(img_resized, 0.55, heatmap, 0.6, 0)
 
 # ======================================================
-# ✅ API FUNCTION (FOR UI IMPORT)
+# ✅ API FUNCTION (FASTAPI / STREAMLIT SAFE)
 # ======================================================
 def generate_gradcam(img_path):
     model = load_model()
@@ -116,12 +132,12 @@ def generate_gradcam(img_path):
     cam_engine = SwinGradCAM(model, target_layer)
 
     img_tensor, orig = load_image(img_path)
-    cam, cls = cam_engine.generate(img_tensor)
+
+    with torch.enable_grad():
+        cam, cls = cam_engine.generate(img_tensor)
 
     result = overlay(orig, cam)
-
-    return result  # ✅ NumPy array (H, W, 3)
-
+    return result  # NumPy array (H, W, 3)
 
 # ---------------- CLI MAIN ----------------
 def main(img_path):
@@ -131,9 +147,12 @@ def main(img_path):
     cam_engine = SwinGradCAM(model, target_layer)
 
     img_tensor, orig = load_image(img_path)
-    cam, cls = cam_engine.generate(img_tensor)
+
+    with torch.enable_grad():
+        cam, cls = cam_engine.generate(img_tensor)
 
     result = overlay(orig, cam)
+
     out_path = "gradcam_stage2_swin.jpg"
     cv2.imwrite(out_path, cv2.cvtColor(result, cv2.COLOR_RGB2BGR))
 
@@ -147,4 +166,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     main(sys.argv[1])
-

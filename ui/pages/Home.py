@@ -1,32 +1,28 @@
 import streamlit as st
 from PIL import Image
 import tempfile
-import sys
-import os
+import requests
+import base64
+from io import BytesIO
 
 # --------------------------------------------------
-# ADD PROJECT ROOT TO PATH
+# CONFIG
 # --------------------------------------------------
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../..")
+API_URL = "http://127.0.0.1:8000/predict"
+
+st.set_page_config(
+    page_title="Eye Disease Detection",
+    layout="centered"
 )
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+
+st.title("👁️ Eye Disease Detection System")
+st.caption("Multi-Stage AI-Based Ophthalmology Screening (Ensemble Model)")
 
 # --------------------------------------------------
-# IMPORTS
+# FILE UPLOAD
 # --------------------------------------------------
-from src.inference import predict
-from src.gradcam_stage2_swin import generate_gradcam
-
-# --------------------------------------------------
-# UI
-# --------------------------------------------------
-st.title("Eye Disease Detection System")
-st.caption("Multi-Stage AI-Based Ophthalmology Screening")
-
 uploaded_file = st.file_uploader(
-    "Upload an eye image",
+    "Upload an eye fundus image",
     type=["jpg", "jpeg", "png"]
 )
 
@@ -34,30 +30,66 @@ if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Uploaded Image", width=350)
 
+    # --------------------------------------------------
+    # SAVE TEMP IMAGE
+    # --------------------------------------------------
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
         image.save(tmp.name)
         img_path = tmp.name
 
-    result = predict(img_path)
+    # --------------------------------------------------
+    # CALL FASTAPI
+    # --------------------------------------------------
+    with st.spinner("Running AI analysis..."):
+        with open(img_path, "rb") as f:
+            response = requests.post(
+                API_URL,
+                files={"file": f}
+            )
 
+        result = response.json()
+
+    st.divider()
+
+    # --------------------------------------------------
+    # STAGE 1 RESULT
+    # --------------------------------------------------
     if result["stage"] == "Stage-1":
-        st.success("🟢 NORMAL EYE")
-        st.write(f"Probability: {result['probability']:.3f}")
+        st.success("🟢 NORMAL EYE DETECTED")
+        st.write(
+            f"**Normal Confidence (Stage-1):** "
+            f"`{result['stage1_probability']:.3f}`"
+        )
+
+    # --------------------------------------------------
+    # STAGE 2 RESULT
+    # --------------------------------------------------
     else:
-        st.error("🔴 DISEASE DETECTED")
-        st.write(f"Disease: {result['prediction']}")
-        st.write(f"Confidence: {result['confidence']:.3f}")
+        if result["prediction"].lower().startswith("normal"):
+            st.warning("🟡 BORDERLINE CASE")
+        else:
+            st.error("🔴 DISEASE DETECTED")
 
-        heatmap = generate_gradcam(img_path)
+        st.write(f"### 🩺 Diagnosis: **{result['prediction']}**")
+        st.write(
+            f"### 📊 Confidence: `{result.get('confidence', 0):.3f}`"
+        )
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.image(image, caption="Original", width=350)
-        with col2:
-            st.image(heatmap, caption="Grad-CAM",  width=350)
+        # --------------------------------------------------
+        # GRAD-CAM DISPLAY
+        # --------------------------------------------------
+        if result.get("gradcam"):
+            heatmap_bytes = base64.b64decode(result["gradcam"])
+            heatmap_img = Image.open(BytesIO(heatmap_bytes))
 
+            st.divider()
+            st.subheader("🧠 Model Explainability (Grad-CAM)")
 
-
+            col1, col2 = st.columns(2)
+            with col1:
+                st.image(image, caption="Original Image", width=350)
+            with col2:
+                st.image(heatmap_img, caption="Grad-CAM", width=350)
 
 
 

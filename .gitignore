@@ -2,44 +2,55 @@
 # Python
 # ================================
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
 *.pyd
 
 # ================================
-# Virtual Environment
+# Virtual Environments
 # ================================
 venv/
 env/
 .venv/
 
 # ================================
-# PyTorch / ML
+# Datasets (IMPORTANT)
 # ================================
+data/
+
+# ================================
+# Models & Checkpoints
+# ================================
+models/
+checkpoints/
 *.pt
 *.pth
 *.ckpt
 *.onnx
 
 # ================================
-# Model Outputs / Artifacts
+# Outputs / Generated Files
 # ================================
 outputs/
-checkpoints/
 runs/
 logs/
 *.log
+*.jpg
+*.png
 
 # ================================
-# Streamlit
+# Local Evaluation Scripts
 # ================================
-.streamlit/secrets.toml
+eval_stage1.py
+eval_stage2.py
+eval_stage2_vit.py
 
 # ================================
-# OS Files
+# Debug / Local-only Files
 # ================================
-.DS_Store
-Thumbs.db
+DEBUG_*.jpg
+DEBUG_*.png
+current_env.txt
 
 # ================================
 # IDE / Editor
@@ -49,24 +60,19 @@ Thumbs.db
 *.swp
 
 # ================================
+# OS Files
+# ================================
+.DS_Store
+Thumbs.db
+
+# ================================
 # Jupyter
 # ================================
 .ipynb_checkpoints/
 
 # ================================
-# Temporary / Cache Files
-# ================================
-*.tmp
-*.temp
-*.bak
-
-# ================================
-# Images Generated During Runtime
-# ================================
-gradcam_*.jpg
-gradcam_*.png
-
-# ================================
 # Environment Variables
 # ================================
 .env
+
+

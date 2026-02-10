@@ -74,3 +74,4 @@ if __name__ == "__main__":
 
     print(f"Prediction : {pred_class}")
     print(f"Confidence : {confidence:.4f}")
+    

@@ -1,90 +1,127 @@
-# 👁️ Eye Disease Detection System
+## 👁️ Eye Disease Detection System (Ensemble + Explainability)
 
-An AI-powered eye disease detection system that analyzes retinal images to identify the presence of ocular diseases using deep learning and explainable AI techniques.
+A production-ready deep learning system for automated eye disease detection using an ensemble of Swin Transformer and Vision Transformer (ViT), enhanced with Grad-CAM explainability for medical interpretability.
 
----
+-- 
 
-## 🚀 Overview
+## 🚀 Key Features
 
-This project presents an AI-based eye disease detection application designed to determine whether an eye disease is present in retinal images.
+✅ Two-stage disease detection pipeline
 
-The system performs:
-- Automated disease detection from eye images
-- Confidence-aware predictions
-- Visual explainability using Grad-CAM to highlight image regions influencing the model’s decision
+🧠 Ensemble learning (Swin Transformer + ViT) using soft-weighted probabilities
 
-The application is implemented as an interactive web interface using **Streamlit**, enabling easy image upload and real-time inference.
+🔍 Grad-CAM explainability (Swin as primary explainable model)
 
----
+-- 
 
-## ✨ Key Features
+## 🩺 Diseases Supported
 
-- 📤 **Simple Image Upload**  
-  Upload retinal images directly through a web interface.
+Diabetic Retinopathy (DR)
 
-- 🧠 **Multi-Stage Disease Detection**  
-  Robust deep learning pipeline for disease presence detection.
+Cataract
 
-- 📊 **Detailed Analysis**  
-  Provides disease classification results along with confidence scores.
+Conjunctivitis
 
-- 🔍 **Explainable AI (Grad-CAM)**  
-  Highlights regions of the image contributing to the disease prediction for better interpretability.
+Each prediction includes:
 
-- ⚡ **Real-Time Inference**  
-  Fast predictions optimized for demos and practical usage.
+Final class label
 
----
+Confidence score
 
-## 🛠️ Technologies Used
+Per-class probabilities
 
-- Python  
-- PyTorch  
-- EfficientNet  
-- Swin Transformer  
-- Grad-CAM  
-- OpenCV  
-- Streamlit  
+Grad-CAM heatmap (visual explanation)
 
----
+-- 
 
-## 🧩 Project Structure
+## 🧠 Architecture Overview
+🔹 Stage 1 (Binary Screening)
 
-```bash
-Eye-Disease-Detection/
+Filters images that require deeper analysis
+
+🔹 Stage 2 (Ensemble Classification)
+
+Swin Transformer → primary model
+
+Vision Transformer (ViT) → secondary model
+
+Soft-weighted ensemble combines probabilities
+
+📌 Important Design Choice
+
+Grad-CAM is generated only from Swin Transformer
+
+Reason: Swin provides spatially meaningful attention maps
+
+Ensemble is used for prediction accuracy, not explainability
+
+This is a recommended and accepted practice in medical AI.
+
+-- 
+
+## 🗂️ Project Structure
+
+Eye Disease Detection/
+│
+├── api/
+│   └── app.py                  # FastAPI entry point
 │
 ├── src/
-│   ├── inference.py
-│   ├── gradcam_stage2_swin.py
+│   ├── __init__.py
 │   ├── config.py
-│
-├── ui/
-│   └── app.py
+│   ├── gradcam_stage2_swin.py
+│   ├── inference.py
+│   ├── utils.py
+│   ├── train_stage1.py
+│   ├── train_stage2.py
+│   ├── train_stage2_vit.py
+│   ├── test_stage1.py
+│   ├── test_stage2.py
+│   └── test_stage2_vit.py
 │
 ├── models/
-│   └── (trained model weights)
+│   └── stage2_swin.pth
+│
+├── ui/
+│   └── pages/
+│       └── Home.py
 │
 ├── requirements.txt
-├── README.md
-└── .gitignore
+├── Dockerfile
+├── .dockerignore
+└── README.md
 
 
-▶️ How to Run the Application
+## ⚙️ Setup & Installation (Local)
 
-▶️ How to Run the Application
+# 1️⃣ Create virtual environment
+python -m venv venv
+source venv/bin/activate # Linux/Mac
+venv\Scripts\activate # Windows
+
+# 2️⃣ Install dependencies
+pip install -r requirements.txt
+
+# ▶️ Running the Application
+🔹 FastAPI Backend
+   uvicorn api.app:app --reload
    
-   git clone https://github.com/your-username/eye-disease-detection.git
-   cd eye-disease-detection
-
-2️⃣ Create a Virtual Environment (Recommended)
-    
-    python -m venv venv
-    source venv/bin/activate      # Linux / Mac
-    venv\Scripts\activate         # Windows
-
-3️⃣ Install Dependencies
+   Open Swagger UI:
+   http://localhost:8000/docs
   
-    streamlit run ui/app.py
+## 🐳 Docker Deployment
+   
+   # Build the image
+    docker build -t eye-disease-api .
+
+  # Run the container
+    docker run -p 8000:8000 eye-disease-api
+
+  Open:
+  http://localhost:8000/docs
+
+
+
 
 ## ⚠️ Disclaimer
 

@@ -25,12 +25,15 @@ STAGE1_MODEL_PATH = "checkpoints/stage1_efficientnet_b3.pth"
 STAGE2_IMG_SIZE = 224
 STAGE2_BATCH_SIZE = 4  # adjust based on your GPU/CPU
 STAGE2_EPOCHS = 10
+STAGE2_VIT_EPOCHS = 15
 STAGE2_LR = 1e-4
+STAGE2_VIT_LR = 3e-5
 
 STAGE2_TRAIN_DIR = "data/stage-2/train"
 STAGE2_VAL_DIR = "data/stage-2/val"
 STAGE2_MODEL_PATH = "checkpoints/stage2_swin_cbam.pth"
+STAGE2_VIT_MODEL_PATH = "models/stage2_vit.pth"
 
-NUM_STAGE2_CLASSES = 3  # DR, Cataract, Conjunctivitis
-STAGE2_CLASS_NAMES = ["Diabetic_Retinopathy", "Cataract", "Conjunctivitis"]
+NUM_STAGE2_CLASSES = 3
+STAGE2_CLASS_NAMES = ["DR", "cataract", "conjunctivitis"]
 
