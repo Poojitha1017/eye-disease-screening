@@ -1,9 +1,41 @@
+# Virtual environment
 venv/
+env/
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.git
+.ipynb_checkpoints/
+
+# Git
+.git/
 .gitignore
+
+# Environment files
 .env
-.ipynb_checkpoints
+
+# Dataset folders (VERY IMPORTANT)
+data/
+dataset/
+train/
+val/
+test/
+
+# Large files
+*.zip
+*.tar
+*.tar.gz
+
+# Images (only if dataset images are inside project)
+*.png
+*.jpg
+*.jpeg
+
+# Jupyter notebooks
+*.ipynb
+
+# System files
+.DS_Store
+Thumbs.db
