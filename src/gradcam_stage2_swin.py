@@ -57,9 +57,15 @@ class SwinGradCAM:
         self.model = model
         self.activations = None
         self.gradients = None
+        self.handles = []  # 🔥 store hook handles
 
-        target_layer.register_forward_hook(self.forward_hook)
-        target_layer.register_full_backward_hook(self.backward_hook)
+        # Register hooks and STORE them
+        self.handles.append(
+            target_layer.register_forward_hook(self.forward_hook)
+        )
+        self.handles.append(
+            target_layer.register_full_backward_hook(self.backward_hook)
+        )
 
     def forward_hook(self, module, input, output):
         self.activations = output  # (B, N, C)
@@ -75,10 +81,22 @@ class SwinGradCAM:
         out[0, cls].backward()
 
         acts = self.activations[0]   # (N, C)
-        grads = self.gradients[0]    # (N, C)
+        grads = self.gradients[0]
 
+# If gradients still have batch dimension or extra dims
+        if grads.dim() == 3:
+         grads = grads.reshape(-1, grads.size(-1))
+
+# Ensure acts are 2D
+        if acts.dim() == 3:
+         acts = acts.reshape(-1, acts.size(-1))
+
+# Channel-wise weights
         weights = grads.mean(dim=0)  # (C,)
+
+# CAM computation
         cam = torch.matmul(acts, weights)  # (N,)
+
 
         cam = cam.detach().cpu().numpy()
         cam = np.maximum(cam, 0)
@@ -86,27 +104,35 @@ class SwinGradCAM:
         # -------------------------------
         # 🔥 STRONG CAM NORMALIZATION
         # -------------------------------
-        # Reshape tokens → spatial
         size = int(math.sqrt(cam.shape[0]))
         cam = cam.reshape(size, size)
 
         cam = cv2.resize(cam, (STAGE2_IMG_SIZE, STAGE2_IMG_SIZE))
 
-        # Percentile clipping (huge difference)
         low, high = np.percentile(cam, 1), np.percentile(cam, 99)
         cam = np.clip(cam, low, high)
 
         cam = (cam - cam.min()) / (cam.max() + 1e-8)
 
-        # Gamma correction (ViT/Swin friendly)
         cam = np.power(cam, 0.5)
 
-        # Smooth slightly (reduce patch artifacts)
         cam = cv2.GaussianBlur(cam, (7, 7), 0)
 
         cam = (cam - cam.min()) / (cam.max() + 1e-8)
 
+        # --------------------------------
+        # 🔥 CRITICAL: REMOVE HOOKS
+        # --------------------------------
+        for handle in self.handles:
+            handle.remove()
+        self.handles = []
+
+        # Clear references (extra safety)
+        self.activations = None
+        self.gradients = None
+
         return cam, cls
+
 
 # ---------------- OVERLAY ----------------
 def overlay(img, cam):
@@ -128,7 +154,7 @@ def overlay(img, cam):
 def generate_gradcam(img_path):
     model = load_model()
 
-    target_layer = model.layers[-1].blocks[-1].norm2
+    target_layer = model.layers[-1].blocks[-1].norm1
     cam_engine = SwinGradCAM(model, target_layer)
 
     img_tensor, orig = load_image(img_path)

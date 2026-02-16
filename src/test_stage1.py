@@ -29,19 +29,17 @@ transform = transforms.Compose([
 # Load Model
 # -----------------------
 weights = models.EfficientNet_B3_Weights.IMAGENET1K_V1
-model = models.efficientnet_b3(weights=weights)
-
-in_features = model.classifier[1].in_features
+model = models.efficientnet_b3(weights=None) 
+in_features = model.classifier[1].in_features 
 model.classifier = nn.Sequential(
-    nn.Linear(in_features, 256),
-    nn.ReLU(inplace=True),
-    nn.Dropout(0.5),
-    nn.Linear(256, 1)
-)
-
+     nn.Linear(in_features, 256), 
+     nn.ReLU(inplace=True), 
+     nn.Dropout(0.5), nn.Linear(256, 1) 
+) 
 model.load_state_dict(torch.load(STAGE1_MODEL_PATH, map_location=device))
 model.to(device)
 model.eval()
+
 
 # -----------------------
 # Read Image Path

@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from timm import create_model
 from sklearn.metrics import classification_report, confusion_matrix
 
-from src.config import *
+from config import *
 
 # --------------------------------------------------
 # Device

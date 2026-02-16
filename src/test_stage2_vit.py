@@ -5,7 +5,7 @@ from torchvision import transforms
 from timm import create_model
 from PIL import Image
 
-from src.config import *
+from config import *
 
 # --------------------------------------------------
 # Device

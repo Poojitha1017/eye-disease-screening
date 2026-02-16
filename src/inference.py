@@ -4,6 +4,7 @@ from timm import create_model
 from PIL import Image
 
 from src.config import *
+from src.gradcam_stage2_swin import SwinGradCAM
 
 # --------------------------------------------------
 # DEVICE
@@ -71,19 +72,22 @@ def preprocess(img_path, img_size):
 # --------------------------------------------------
 # INFERENCE (FINAL FIX)
 # --------------------------------------------------
-@torch.no_grad()
 def predict(image_path):
 
+    import gc
+    import torch
+
     # ==============================
-    # STAGE 1
+    # STAGE 1 (NO GRADIENTS)
     # ==============================
     img1 = preprocess(image_path, STAGE1_IMG_SIZE)
-    stage1_prob = torch.sigmoid(stage1(img1)).item()
 
-    # ------------------------------
-    # HARD NORMAL GATE
-    # ------------------------------
-    NORMAL_THRESHOLD = 0.90  # very strict
+    stage1.eval()
+
+    with torch.no_grad():
+        stage1_prob = torch.sigmoid(stage1(img1)).item()
+
+    NORMAL_THRESHOLD = 0.90
 
     if stage1_prob >= NORMAL_THRESHOLD:
         return {
@@ -93,20 +97,24 @@ def predict(image_path):
         }
 
     # ==============================
-    # STAGE 2 (only if NOT clearly normal)
+    # STAGE 2 ENSEMBLE (NO GRADIENTS)
     # ==============================
     img2 = preprocess(image_path, STAGE2_IMG_SIZE)
 
-    swin_probs = torch.softmax(swin(img2), dim=1)
-    vit_probs  = torch.softmax(vit(img2), dim=1)
+    swin.eval()
+    vit.eval()
 
-    ensemble_probs = (
-        SWIN_WEIGHT * swin_probs +
-        VIT_WEIGHT  * vit_probs
-    )
+    with torch.no_grad():
+        swin_probs = torch.softmax(swin(img2), dim=1)
+        vit_probs  = torch.softmax(vit(img2), dim=1)
 
-    cls_idx = torch.argmax(ensemble_probs, dim=1).item()
-    confidence = ensemble_probs[0, cls_idx].item()
+        ensemble_probs = (
+            SWIN_WEIGHT * swin_probs +
+            VIT_WEIGHT  * vit_probs
+        )
+
+        cls_idx = torch.argmax(ensemble_probs, dim=1).item()
+        confidence = ensemble_probs[0, cls_idx].item()
 
     # ------------------------------
     # LOW-CONFIDENCE REJECTION
@@ -119,6 +127,25 @@ def predict(image_path):
             "confidence": round(confidence, 4)
         }
 
+    # ==============================
+    # GRAD-CAM (GRADIENTS ENABLED)
+    # ==============================
+
+    # IMPORTANT: no torch.no_grad() here
+    target_layer = swin.layers[-1].blocks[-1].norm1  # adjust if needed
+
+    cam_generator = SwinGradCAM(swin, target_layer)
+
+
+    heatmap, cam_cls = cam_generator.generate(img2)
+
+    # Clean up Grad-CAM object
+    del cam_generator
+
+    # Force garbage collection (Docker-safe)
+    gc.collect()
+    torch.cuda.empty_cache()
+
     return {
         "stage": "Stage-2 (Swin + ViT Ensemble)",
         "stage1_probability": round(stage1_prob, 4),
@@ -127,14 +154,6 @@ def predict(image_path):
         "class_probabilities": {
             STAGE2_CLASS_NAMES[i]: round(ensemble_probs[0, i].item(), 4)
             for i in range(NUM_STAGE2_CLASSES)
-        }
+        },
+        "gradcam": heatmap.tolist()  # convert numpy → JSON safe
     }
-
-
-
-
-
-
-
-
-
